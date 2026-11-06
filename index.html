@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="媽媽的手帳">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f6f1ea">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>媽媽的手帳</title>
+<style>
+:root{--bg:#f6f1ea;--card:#fff;--ink:#2b2622;--sub:#8a8179;--line:#e6ddd2;--accent:#b5653a;--red:#d93b3b;--green:#1f9d55;--hol:#d6d2cd}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;font-size:18px;line-height:1.4}
+body{padding:calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 100px)}
+body.lock{overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+input,textarea{font:inherit;color:inherit}
+.hidden{display:none!important}
+.mt{margin-top:12px}
+.sub{color:var(--sub);font-size:15px}
+.red{color:var(--red)}.green{color:var(--green)}
+
+.seg{display:flex;background:#e8dfd3;border-radius:14px;padding:4px;gap:4px}
+.seg button{flex:1;padding:11px 0;border-radius:11px;font-weight:700;color:var(--sub);font-size:18px}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg.small{margin-top:12px}
+.seg.small button{padding:8px 0;font-size:16px}
+
+.card{background:var(--card);border-radius:18px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.sum{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.sum .lbl{font-size:15px;color:var(--sub)}
+.sum .big{font-size:24px;font-weight:800;margin-top:2px;word-break:break-all}
+
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.calhead b{font-size:20px}
+.calhead button{width:44px;height:44px;font-size:28px;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dow{text-align:center;font-size:14px;color:var(--sub);padding-bottom:2px}
+.cell{min-height:58px;background:#faf7f3;border-radius:10px;display:flex;flex-direction:column;align-items:center;padding:4px 1px 4px;overflow:hidden}
+.cell .d{font-size:16px;width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%}
+.cell.today .d{background:var(--accent);color:#fff;font-weight:700}
+.cell.sel{outline:2.5px solid var(--ink);outline-offset:-2px}
+.cell.hol{background:var(--hol);color:#6f6a64}
+.cell .amt{font-size:11px;font-weight:700;margin-top:1px;white-space:nowrap}
+.bars{width:100%;display:flex;flex-direction:column;gap:2px;margin-top:auto;padding:0 4px}
+.bar{display:block;height:6px;border-radius:3px}
+
+.dayhead{display:flex;align-items:center;justify-content:space-between;margin:18px 2px 8px}
+.dayhead b{font-size:19px}
+.ghost{padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:15px}
+.note{background:var(--hol);border-radius:12px;padding:10px 14px;margin-bottom:8px;color:#5f5a55}
+.item{display:block;width:100%;text-align:left;background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.row{display:flex;align-items:center;gap:8px}
+.tag{flex:none;white-space:nowrap;background:#f0e7dc;border-radius:8px;padding:2px 10px;font-weight:700;font-size:16px}
+.amt2{flex:none;margin-left:auto;font-weight:800;font-size:19px}
+.right{margin-left:auto}
+.item .row .sub{flex:1;min-width:0}
+.memo{color:var(--sub);font-size:15px;margin-top:6px;white-space:pre-wrap}
+.empty{text-align:center;color:var(--sub);padding:20px 0}
+.daytot{text-align:right;padding:2px 6px;font-size:16px}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;flex:none}
+
+.gallery{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.gallery .empty{grid-column:1/-1}
+.pcard{background:#fff;border-radius:16px;overflow:hidden;text-align:left;display:flex;flex-direction:column}
+.thumb{aspect-ratio:1;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:40px}
+.pinfo{padding:8px 10px 10px}
+.pname{font-weight:700;display:flex;gap:6px;align-items:center}
+
+#fab{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 16px);height:58px;border-radius:18px;background:var(--ink);color:#fff;font-size:20px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.2);z-index:10}
+
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+.mask.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:93vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg);border-radius:22px 22px 0 0;padding:0 16px calc(env(safe-area-inset-bottom) + 24px);transform:translateY(105%);transition:transform .25s;z-index:41}
+.sheet:not(.open){visibility:hidden;transition:transform .25s,visibility 0s .25s}
+.sheet.open{transform:none}
+.sh-head{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;z-index:2}
+.sh-head b{font-size:19px}
+.sh-head button{font-size:17px;color:var(--sub);padding:6px 4px}
+.sh-head .save{color:#fff;background:var(--accent);padding:8px 18px;border-radius:999px;font-weight:700}
+.f{display:block;margin-bottom:16px}
+.f>span{display:block;font-size:15px;color:var(--sub);margin:0 0 6px 4px}
+.f>span em{color:var(--red);font-style:normal}
+.in{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;font-size:18px;-webkit-appearance:none;appearance:none}
+input[type=date].in{min-height:52px}
+textarea.in{resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:10px 20px;border-radius:999px;background:#fff;border:1.5px solid var(--line);font-size:18px;font-weight:600}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.pl .chip.on[data-v=gain]{background:var(--red);border-color:var(--red)}
+.pl .chip.on[data-v=loss]{background:var(--green);border-color:var(--green)}
+.chip.add{color:var(--accent);border-style:dashed;padding:10px 16px}
+.addrow{display:flex;gap:8px;margin-top:8px}
+.btn{padding:0 18px;border-radius:14px;background:var(--accent);color:#fff;font-weight:700;white-space:nowrap}
+.danger{width:100%;padding:14px;border-radius:14px;background:#fff;color:var(--red);font-weight:700;margin-top:6px}
+.check{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border-radius:14px;border:1.5px solid var(--line);font-size:18px}
+.check input{width:24px;height:24px;accent-color:var(--accent)}
+.imgbox{display:flex;align-items:center;justify-content:center;min-height:150px;background:#fff;border:1.5px dashed var(--line);border-radius:14px;overflow:hidden;color:var(--sub);position:relative}
+.imgbox img{width:100%;max-height:320px;object-fit:contain;display:block}
+.imgbox input{position:absolute;inset:0;opacity:0}
+.swatches{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sw{width:38px;height:38px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px var(--line)}
+.sw.on{box-shadow:0 0 0 3px var(--ink)}
+.sw-custom{position:relative;width:38px;height:38px;border-radius:50%;background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);overflow:hidden}
+.sw-custom input{position:absolute;inset:-10px;width:60px;height:60px;opacity:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pick{display:flex;flex-direction:column;gap:8px}
+.pick button{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border-radius:14px;border:1.5px solid var(--line);text-align:left;font-size:18px}
+.pick button.on{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.mini .cell{min-height:44px}
+.mini .cell.picked{background:var(--accent);color:#fff}
+.mini .cell.picked .d{color:#fff}
+.detail img{width:100%;border-radius:16px;display:block;margin-bottom:12px}
+.kv{background:#fff;border-radius:16px;padding:4px 14px;margin-bottom:12px}
+.kv div{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #f1ebe3}
+.kv div:last-child{border:0}
+.kv span:first-child{color:var(--sub);flex:none}
+.kv span:last-child{text-align:right;white-space:pre-wrap}
+.datechips{display:flex;flex-wrap:wrap;gap:6px}
+.datechips span{background:#fff;border-radius:8px;padding:4px 10px;font-size:15px}
+.bigdays{font-size:17px;margin:4px 2px 12px}
+.bigdays b{font-size:26px;color:var(--accent)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.actions button{padding:14px;border-radius:14px;background:#fff;font-weight:700}
+.actions .pri{background:var(--accent);color:#fff}
+
+#dlg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:60;padding:30px}
+#dlg .box{background:#fff;border-radius:20px;padding:22px;width:100%;max-width:340px;text-align:center}
+#dlg .box p{margin:0 0 18px;font-size:18px}
+#dlg .box div{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#dlg .box button{padding:13px;border-radius:12px;background:#f1ebe3;font-weight:700}
+#dlg .box .del{background:var(--red);color:#fff}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 90px);transform:translateX(-50%);background:rgba(43,38,34,.92);color:#fff;padding:12px 20px;border-radius:999px;font-size:16px;opacity:0;transition:.2s;pointer-events:none;z-index:70;white-space:nowrap}
+#toast.show{opacity:1}
+.login{margin-top:40px;padding:24px 18px;text-align:center}
+.login .logo{font-size:52px}
+.login>b{font-size:24px;display:block;margin:6px 0 4px}
+.login .f{text-align:left}
+.btn.big{width:100%;height:54px;font-size:19px;border-radius:16px}
+.capital{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left}
+.capital .lbl{font-size:15px;color:var(--sub)}
+.capital .big{font-size:26px;font-weight:800}
+.linkbtn{color:var(--red);font-size:15px;margin:8px 4px 0}
+img.prog{display:block;width:100%;max-height:240px;object-fit:cover;border-radius:10px;margin-top:8px}
+.progs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.progs figure{margin:0;background:#fff;border-radius:12px;overflow:hidden}
+.progs img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.progs figcaption{font-size:13px;color:var(--sub);padding:4px 8px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.foot{text-align:center;color:var(--sub);font-size:13px;margin-top:24px}
+</style>
+</head>
+<body>
+
+<div class="seg" id="modeSeg">
+  <button data-m="stock" onclick="setMode('stock')">📈 股票</button>
+  <button data-m="paint" onclick="setMode('paint')">🎨 畫畫</button>
+</div>
+<div id="app"></div>
+<div class="foot" id="foot">示範版：資料暫時存在這支手機裡</div>
+
+<button id="fab" onclick="fab()">＋ 新增</button>
+<div class="mask" id="mask" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet"></div>
+<div id="dlg" class="hidden"></div>
+<div id="toast"></div>
+
+<script>
+// ---------- 設定：填好這兩個就會變成雲端版（空白＝示範版，資料只存在這支手機） ----------
+const SUPABASE_URL='https://xxcqpdaqdqdkqwteitga.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_eEE9OCdkS6AvjX39s1-sRw_AbH0cSY4';
+const BUCKET='paintings';
+const CLOUD=!!(SUPABASE_URL&&SUPABASE_ANON_KEY);
+
+// ---------- 資料層 ----------
+const KEY=CLOUD?'mom-app-cloud':'mom-app-v1';
+let mem=null,sb=null,user=null,syncT=null,dirty=false;
+function blank(){return{stock:{entries:[],products:['期貨','華新科'],holidays:[]},paint:{paintings:[],logs:[]}}}
+function norm(d){const b=blank();d=d||{};return{stock:{...b.stock,...(d.stock||{})},paint:{...b.paint,...(d.paint||{})}}}
+function load(k=KEY){try{const s=localStorage.getItem(k);if(s)return norm(JSON.parse(s))}catch(e){}return mem||blank()}
+function save(){
+  mem=db;
+  try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){if(!CLOUD){toast('手機空間不夠，請少放幾張圖');return false}}
+  if(CLOUD){dirty=true;clearTimeout(syncT);syncT=setTimeout(pushCloud,500)}
+  return true;
+}
+async function pushCloud(){
+  if(!dirty||!user)return;
+  dirty=false;
+  const {error}=await sb.from('app_state').upsert({user_id:user.id,data:db,updated_at:new Date().toISOString()});
+  if(error){dirty=true;toast('雲端同步失敗，等一下會自動再試');clearTimeout(syncT);syncT=setTimeout(pushCloud,8000)}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&dirty){clearTimeout(syncT);pushCloud()}});
+
+// 圖片：雲端版上傳到 Supabase Storage，示範版轉成小圖存在手機
+async function uploadImg(blob){
+  const path=`${user.id}/${uid()}.jpg`;
+  const {error}=await sb.storage.from(BUCKET).upload(path,blob,{contentType:'image/jpeg'});
+  if(error)throw error;
+  return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+function imgUsed(url){return db.paint.paintings.some(p=>p.img===url)||db.paint.logs.some(l=>l.img===url)}
+function removeImg(url){
+  if(!url||imgUsed(url))return;
+  if(!CLOUD||!url||!url.includes('/'+BUCKET+'/'))return;
+  const path=decodeURIComponent(url.split('/'+BUCKET+'/')[1]||'');
+  if(path)sb.storage.from(BUCKET).remove([path]);
+}
+const toBlob=dataUrl=>fetch(dataUrl).then(r=>r.blob());
+let db=CLOUD?blank():load();
+
+// ---------- 小工具 ----------
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const ds=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const TODAY=ds(new Date());
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cl=n=>n>0?'red':n<0?'green':'';
+const fmt=n=>(n>0?'+':n<0?'−':'')+Math.abs(n).toLocaleString('zh-TW');
+const fmtS=n=>{const a=Math.abs(n);const t=a>=10000?(a/10000).toFixed(a>=100000?0:1).replace(/\.0$/,'')+'萬':a.toLocaleString('zh-TW');return(n>0?'+':n<0?'−':'')+t};
+const WK='日一二三四五六';
+function label(k){const[y,m,d]=k.split('-').map(Number);const w=new Date(y,m-1,d).getDay();return`${m}月${d}日（${WK[w]}）${k===TODAY?'・今天':''}`}
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2000)}
+function ask(msg,ok,okText='刪除'){const d=$('#dlg');d.innerHTML=`<div class="box"><p>${msg}</p><div><button onclick="$('#dlg').classList.add('hidden')">取消</button><button class="del" id="dlgOk">${okText}</button></div></div>`;d.classList.remove('hidden');$('#dlgOk').onclick=()=>{d.classList.add('hidden');ok()}}
+function openSheet(html){const s=$('#sheet');s.innerHTML=html;s.scrollTop=0;s.classList.add('open');$('#mask').classList.add('open');document.body.classList.add('lock')}
+function closeSheet(){$('#sheet').classList.remove('open');$('#mask').classList.remove('open');document.body.classList.remove('lock')}
+
+// ---------- 畫面狀態 ----------
+const now=new Date();
+let ui={mode:'stock',y:now.getFullYear(),m:now.getMonth(),sel:TODAY,ptab:'cal',sold:false};
+try{const m=localStorage.getItem(KEY+'-mode');if(m)ui.mode=m}catch(e){}
+let F={};
+
+function setMode(m){ui.mode=m;try{localStorage.setItem(KEY+'-mode',m)}catch(e){}render()}
+function mv(n){ui.m+=n;if(ui.m<0){ui.m=11;ui.y--}if(ui.m>11){ui.m=0;ui.y++}render()}
+function pick(k){ui.sel=k;render()}
+function goto(k){const[y,m]=k.split('-').map(Number);ui.y=y;ui.m=m-1;ui.sel=k}
+
+function render(){
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===ui.mode));
+  $('#app').innerHTML=ui.mode==='stock'?stockView():paintView();
+  $('#fab').textContent=ui.mode==='stock'?'＋ 新增損益':(ui.ptab==='cal'?'＋ 新增繪畫紀錄':'＋ 新增畫作');
+}
+function fab(){
+  if(ui.mode==='stock')return stockForm();
+  if(ui.ptab==='list')return paintForm();
+  if(!db.paint.paintings.length){toast('請先新增一張畫作');ui.ptab='list';render();return paintForm()}
+  logForm();
+}
+
+function calendar(cellFn,y=ui.y,m=ui.m,opt={}){
+  const start=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
+  let h=`<div class="calhead"><button onclick="${opt.nav||'mv'}(-1)">‹</button><b>${y}年${m+1}月</b><button onclick="${opt.nav||'mv'}(1)">›</button></div><div class="grid">`+[...WK].map(x=>`<div class="dow">${x}</div>`).join('');
+  for(let i=0;i<start;i++)h+='<div></div>';
+  for(let d=1;d<=days;d++){
+    const k=`${y}-${pad(m+1)}-${pad(d)}`,c=cellFn(k);
+    h+=`<button class="cell ${c.cls||''} ${!opt.nav&&k===ui.sel?'sel':''} ${k===TODAY?'today':''}" onclick="${opt.click||'pick'}('${k}')"><span class="d">${d}</span>${c.html||''}</button>`;
+  }
+  return h+'</div>';
+}
+
+// ================= 股票 =================
+function dayPL(k){return db.stock.entries.filter(e=>e.date===k).reduce((s,e)=>s+e.pl,0)}
+function stockView(){
+  const S=db.stock,ym=`${ui.y}-${pad(ui.m+1)}`;
+  const monthTot=S.entries.filter(e=>e.date.startsWith(ym)).reduce((s,e)=>s+e.pl,0);
+  const todayTot=dayPL(TODAY);
+  const cal=calendar(k=>{
+    const hol=S.holidays.includes(k),has=S.entries.some(e=>e.date===k),v=dayPL(k);
+    return{cls:hol?'hol':'',html:has?`<span class="amt ${cl(v)}">${v===0?'0':fmtS(v)}</span>`:(hol?'<span class="amt">休盤</span>':'')};
+  });
+  const list=S.entries.filter(e=>e.date===ui.sel),isHol=S.holidays.includes(ui.sel);
+  const totPL=S.entries.reduce((s,e)=>s+e.pl,0),hasCap=typeof S.capital==='number';
+  return `
+  <button class="card capital mt" onclick="capForm()">
+    <div><div class="lbl">本金</div><div class="big">${hasCap?Math.round(S.capital+totPL).toLocaleString('zh-TW'):'點這裡設定'}</div></div>
+    <span class="ghost">調整</span></button>
+  <div class="sum">
+    <div class="card"><div class="lbl">今日合計損益</div><div class="big ${cl(todayTot)}">${fmt(todayTot)}</div></div>
+    <div class="card"><div class="lbl">${ui.m+1}月合計損益</div><div class="big ${cl(monthTot)}">${fmt(monthTot)}</div></div>
+  </div>
+  <div class="card">${cal}</div>
+  <div class="dayhead"><b>${label(ui.sel)}</b><button class="ghost" onclick="toggleHol()">${isHol?'取消休盤日':'設為休盤日'}</button></div>
+  ${isHol?'<div class="note">這天是休盤日</div>':''}
+  ${list.map(e=>`<button class="item" onclick="stockForm('${e.id}')">
+      <div class="row"><span class="tag">${esc(e.product)}</span><span class="sub">${[e.side==='short'?'放空':'做多',...bsText(e)].join('・')}</span><span class="amt2 ${cl(e.pl)}">${fmt(e.pl)}</span></div>
+      ${e.note?`<div class="memo">${esc(e.note)}</div>`:''}</button>`).join('')}
+  ${!list.length&&!isHol?'<div class="empty">這天還沒有紀錄</div>':''}
+  ${list.length>1?`<div class="daytot">當日合計 <b class="${cl(dayPL(ui.sel))}">${fmt(dayPL(ui.sel))}</b></div>`:''}`;
+}
+function capForm(){
+  const S=db.stock,totPL=S.entries.reduce((s,e)=>s+e.pl,0),cur=typeof S.capital==='number'?Math.round(S.capital+totPL):'';
+  openSheet(`
+  <div class="sh-head"><button onclick="closeSheet()">取消</button><b>調整本金</b><button class="save" onclick="saveCap()">儲存</button></div>
+  <label class="f"><span>目前本金</span><input class="in" id="capIn" inputmode="decimal" value="${cur}" placeholder="例如 500000"></label>
+  <p class="sub">之後每筆獲利、損失都會自動加減到本金上。入金、出金時再來這裡改成新的金額就好。</p>`);
+}
+function saveCap(){
+  const v=parseFloat($('#capIn').value.replace(/,/g,''));
+  if(isNaN(v))return toast('請輸入金額');
+  const totPL=db.stock.entries.reduce((s,e)=>s+e.pl,0);
+  db.stock.capital=v-totPL;save();closeSheet();render();toast('本金已更新');
+}
+function toggleHol(){
+  const H=db.stock.holidays,i=H.indexOf(ui.sel);
+  if(i>=0)H.splice(i,1);else H.push(ui.sel);
+  save();render();
+}
+function chipRow(group,opts,cur){return opts.map(([v,t])=>`<button type="button" class="chip ${cur===v?'on':''}" data-v="${v}" onclick="setOpt(this,'${group}','${v}')">${t}</button>`).join('')}
+function setOpt(btn,group,v){F[group]=v;btn.parentNode.querySelectorAll('.chip').forEach(b=>b.classList.toggle('on',b===btn))}
+function prodChips(){return db.stock.products.map((p,i)=>`<button type="button" class="chip ${F.product===p?'on':''}" onclick="setProd(${i})">${esc(p)}</button>`).join('')+`<button type="button" class="chip add" onclick="$('#newProd').classList.toggle('hidden');$('#np').focus()">＋</button>`}
+function setProd(i){F.product=db.stock.products[i];$('#prodChips').innerHTML=prodChips()}
+function addProd(){
+  const v=$('#np').value.trim();if(!v)return;
+  if(!db.stock.products.includes(v))db.stock.products.push(v);
+  save();F.product=v;$('#np').value='';$('#newProd').classList.add('hidden');$('#prodChips').innerHTML=prodChips();
+}
+function bsOf(e){if(e.buy!==undefined||e.sell!==undefined)return{buy:e.buy||'',sell:e.sell||''};return e.action==='sell'?{buy:'',sell:e.qty||''}:{buy:e.qty||'',sell:''}}
+function bsText(e){const b=bsOf(e),r=[];if(b.buy)r.push('買進 '+esc(b.buy));if(b.sell)r.push('賣出 '+esc(b.sell));return r}
+function stockForm(id){
+  const e=id&&db.stock.entries.find(x=>x.id===id);
+  F=e?{...e,...bsOf(e),plType:e.pl<0?'loss':'gain',amt:Math.abs(e.pl)}:{id:null,date:TODAY,product:db.stock.products[0]||'',side:'long',buy:'',sell:'',plType:'gain',amt:'',note:''};
+  openSheet(`
+  <div class="sh-head"><button onclick="closeSheet()">取消</button><b>${e?'編輯':'新增'}損益</b><button class="save" onclick="saveStock()">儲存</button></div>
+  <label class="f"><span>日期</span><input type="date" class="in" value="${F.date}" onchange="F.date=this.value"></label>
+  <div class="f"><span>商品</span><div class="chips" id="prodChips">${prodChips()}</div>
+    <div id="newProd" class="addrow hidden"><input class="in" id="np" placeholder="例如：台積電"><button class="btn" onclick="addProd()">加入</button></div></div>
+  <div class="f"><span>方向</span><div class="chips">${chipRow('side',[['short','放空'],['long','做多']],F.side)}</div></div>
+  <div class="two">
+    <label class="f"><span>買進</span><input class="in" inputmode="decimal" placeholder="數值" value="${esc(F.buy)}" oninput="F.buy=this.value"></label>
+    <label class="f"><span>賣出</span><input class="in" inputmode="decimal" placeholder="數值" value="${esc(F.sell)}" oninput="F.sell=this.value"></label></div>
+  <div class="f"><span>損益</span><div class="chips pl">${chipRow('plType',[['loss','損失'],['gain','獲利']],F.plType)}</div>
+    <input class="in mt" inputmode="decimal" placeholder="金額" value="${F.amt}" oninput="F.amt=this.value"></div>
+  <label class="f"><span>備註</span><textarea class="in" rows="3" oninput="F.note=this.value">${esc(F.note)}</textarea></label>
+  ${e?`<button class="danger" onclick="ask('確定要刪除這筆紀錄嗎？',delStock)">刪除這筆</button>`:''}`);
+}
+function saveStock(){
+  const amt=parseFloat(String(F.amt).replace(/,/g,''));
+  if(!F.date)return toast('請選日期');
+  if(!F.product)return toast('請選商品');
+  if(isNaN(amt))return toast('請輸入損益金額');
+  const rec={id:F.id||uid(),date:F.date,product:F.product,side:F.side,buy:String(F.buy).trim(),sell:String(F.sell).trim(),pl:F.plType==='loss'?-Math.abs(amt):Math.abs(amt),note:F.note.trim()};
+  const E=db.stock.entries,i=E.findIndex(x=>x.id===rec.id);
+  if(i>=0)E[i]=rec;else E.push(rec);
+  save();closeSheet();goto(rec.date);render();toast('已儲存');
+}
+function delStock(){db.stock.entries=db.stock.entries.filter(x=>x.id!==F.id);save();closeSheet();render();toast('已刪除')}
+
+// ================= 畫畫 =================
+const P=id=>db.paint.paintings.find(p=>p.id===id);
+const datesOf=pid=>[...new Set(db.paint.logs.filter(l=>l.pid===pid).map(l=>l.date))].sort();
+const daysOf=pid=>datesOf(pid).length;
+const COLORS=['#e8574a','#f08a3c','#f2c43d','#8fbf4d','#3fa37a','#3fb3c4','#4a7fd6','#7b5cc9','#c85ca8','#8b5e3c','#9a9a9a','#2b2622'];
+
+function paintView(){
+  return `<div class="seg small">${[['cal','繪畫日曆'],['list','我的畫作']].map(([v,t])=>`<button class="${ui.ptab===v?'on':''}" onclick="ui.ptab='${v}';render()">${t}</button>`).join('')}</div>`+(ui.ptab==='cal'?paintCal():paintList());
+}
+function paintCal(){
+  const L=db.paint.logs;
+  const cal=calendar(k=>{
+    const ps=[...new Set(L.filter(l=>l.date===k).map(l=>l.pid))].map(P).filter(Boolean);
+    return{html:ps.length?`<span class="bars">${ps.slice(0,3).map(p=>`<i class="bar" style="background:${p.color}"></i>`).join('')}</span>`:''};
+  });
+  const list=L.filter(l=>l.date===ui.sel&&P(l.pid));
+  return `<div class="card mt">${cal}</div><div class="dayhead"><b>${label(ui.sel)}</b></div>`+
+    (list.length?list.map(l=>{const p=P(l.pid),ds_=datesOf(p.id);return `<button class="item" onclick="logForm('${l.id}')">
+      <div class="row"><i class="dot" style="background:${p.color}"></i><b>${esc(p.name)}</b><span class="sub right">第 ${ds_.indexOf(l.date)+1} 天・共 ${ds_.length} 天</span></div>
+      ${l.note?`<div class="memo">${esc(l.note)}</div>`:''}${l.img?`<img class="prog" src="${l.img}">`:''}</button>`}).join(''):'<div class="empty">這天沒有畫畫紀錄</div>');
+}
+function paintList(){
+  const all=db.paint.paintings,cnt=v=>all.filter(p=>!!p.sold===v).length;
+  const ps=all.filter(p=>!!p.sold===ui.sold);
+  return `<div class="seg small">${[[false,'未賣'],[true,'已賣']].map(([v,t])=>`<button class="${ui.sold===v?'on':''}" onclick="ui.sold=${v};render()">${t}（${cnt(v)}）</button>`).join('')}</div>
+  <div class="gallery">${ps.map(p=>`<button class="pcard" onclick="paintDetail('${p.id}')">
+    <div class="thumb" style="${p.img?`background-image:url(${p.img})`:`background:${p.color}33`}">${p.img?'':'🎨'}</div>
+    <div class="pinfo"><div class="pname"><i class="dot" style="background:${p.color}"></i>${esc(p.name)}</div>
+    <div class="sub">${[p.year,p.size].filter(Boolean).map(esc).join('・')||'&nbsp;'}</div>
+    <div class="sub">已畫 ${daysOf(p.id)} 天</div></div></button>`).join('')||`<div class="empty">${ui.sold?'還沒有賣出的畫':'還沒有畫作，按下方新增'}</div>`}</div>`;
+}
+function paintDetail(id){
+  const p=P(id),d=datesOf(id);
+  const rows=[['尺寸',p.size],['底材',p.base],['材料',p.material],['年份',p.year],['藏家',p.collected?(p.collector||'（已收藏）'):''],['售價',p.price],['經歷',p.history],['狀態',p.sold?'已賣出':'未賣']].filter(r=>r[1]);
+  openSheet(`
+  <div class="sh-head"><button onclick="closeSheet()">關閉</button><b>${esc(p.name)}</b><button class="save" onclick="paintForm('${id}')">編輯</button></div>
+  <div class="detail">${p.img?`<img src="${p.img}">`:''}
+  <div class="bigdays"><i class="dot" style="background:${p.color}"></i> 這張畫共畫了 <b>${d.length}</b> 天</div>
+  <div class="actions"><button class="pri" onclick="logForm(null,'${id}')">＋ 記錄今天畫了</button><button onclick="toggleSold('${id}')">${p.sold?'改回未賣':'標記已賣出'}</button></div>
+  ${rows.length?`<div class="kv">${rows.map(r=>`<div><span>${r[0]}</span><span>${esc(r[1])}</span></div>`).join('')}</div>`:''}
+  ${d.length?`<div class="f"><span>畫過的日子</span><div class="datechips">${d.map(x=>`<span>${x.slice(5).replace('-','/')}</span>`).join('')}</div></div>`:''}
+  ${(()=>{const g=db.paint.logs.filter(l=>l.pid===id&&l.img).sort((a,b)=>a.date<b.date?-1:1);return g.length?`<div class="f"><span>進度照片</span><div class="progs">${g.map(l=>`<figure><img src="${l.img}"><figcaption>${l.date.slice(5).replace('-','/')}${l.note?'・'+esc(l.note):''}</figcaption></figure>`).join('')}</div></div>`:''})()}
+  </div>`);
+}
+function toggleSold(id){const p=P(id);p.sold=!p.sold;save();ui.sold=p.sold;render();paintDetail(id);toast(p.sold?'已移到「已賣」':'已移到「未賣」')}
+
+function paintForm(id){
+  const p=id&&P(id);
+  F=p?{...p}:{id:null,img:'',name:'',size:'',base:'',material:'',year:String(new Date().getFullYear()),collected:false,collector:'',price:'',history:'',color:COLORS[db.paint.paintings.length%COLORS.length],sold:ui.sold};
+  const t=(k,lbl,ph='')=>`<label class="f"><span>${lbl}</span><input class="in" placeholder="${ph}" value="${esc(F[k])}" oninput="F.${k}=this.value"></label>`;
+  openSheet(`
+  <div class="sh-head"><button onclick="closeSheet()">取消</button><b>${p?'編輯':'新增'}畫作</b><button class="save" onclick="savePaint()">儲存</button></div>
+  <div class="f"><span>圖片</span><div class="imgbox" id="imgPrev">${F.img?`<img src="${F.img}">`:'點這裡上傳照片'}<input type="file" accept="image/*" onchange="pickImg(this)"></div></div>
+  <label class="f"><span>畫名 <em>*必填</em></span><input class="in" id="pname" value="${esc(F.name)}" oninput="F.name=this.value"></label>
+  <div class="f"><span>代表色（日曆上會顯示這個顏色）</span><div class="swatches" id="sws">${swatches()}</div></div>
+  <div class="two">${t('size','尺寸','例如 30×40cm')}${t('year','年份')}</div>
+  <div class="two">${t('base','底材','例如 畫布')}${t('material','材料','例如 油彩')}</div>
+  <div class="f"><label class="check"><input type="checkbox" ${F.collected?'checked':''} onchange="F.collected=this.checked;$('#colBox').classList.toggle('hidden',!this.checked)">藏家收藏</label>
+    <div id="colBox" class="mt ${F.collected?'':'hidden'}"><input class="in" placeholder="藏家名稱" value="${esc(F.collector)}" oninput="F.collector=this.value"></div></div>
+  ${t('price','售價')}
+  <label class="f"><span>經歷</span><textarea class="in" rows="3" placeholder="展覽、得獎…" oninput="F.history=this.value">${esc(F.history)}</textarea></label>
+  <div class="f"><label class="check"><input type="checkbox" ${F.sold?'checked':''} onchange="F.sold=this.checked">已賣出</label></div>
+  ${p?`<button class="danger" onclick="ask('刪除這張畫？它的繪畫紀錄也會一起刪掉。',delPaint)">刪除這張畫</button>`:''}`);
+}
+function swatches(){return COLORS.map(c=>`<button type="button" class="sw ${F.color===c?'on':''}" style="background:${c}" onclick="F.color='${c}';$('#sws').innerHTML=swatches()"></button>`).join('')+
+  `<label class="sw-custom ${COLORS.includes(F.color)?'':'sw on'}" style="${COLORS.includes(F.color)?'':'background:'+F.color}"><input type="color" value="${F.color}" onchange="F.color=this.value;$('#sws').innerHTML=swatches()"></label>`}
+// 依序嘗試三種讀圖方式（不同 iPhone／瀏覽器環境支援的不一樣）
+function imgFromSrc(src){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=src})}
+function readAsDataURL(f){return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)})}
+async function decodeImg(f){
+  if(window.createImageBitmap){try{return await createImageBitmap(f,{imageOrientation:'from-image'})}catch(e){try{return await createImageBitmap(f)}catch(e2){}}}
+  try{return await imgFromSrc(await readAsDataURL(f))}catch(e){}
+  const url=URL.createObjectURL(f);
+  try{return await imgFromSrc(url)}finally{setTimeout(()=>URL.revokeObjectURL(url),1000)}
+}
+async function pickImg(inp){
+  const f=inp.files[0];if(!f)return;
+  toast('讀取圖片中…');
+  let img;
+  try{img=await decodeImg(f)}catch(e){toast('這張圖讀不到，換一張試試');return}
+  const w=img.width,h=img.height,M=CLOUD?1600:1000,s=Math.min(1,M/Math.max(w,h));
+  const c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  if(img.close)img.close();
+  F.img=c.toDataURL('image/jpeg',CLOUD?.82:.78);F._newImg=true;
+  $('#imgPrev').innerHTML=`<img src="${F.img}"><input type="file" accept="image/*" onchange="pickImg(this)">`;
+  const d=$('#imgDel');if(d)d.classList.remove('hidden');
+}
+let savingPaint=false;
+async function savePaint(){
+  if(savingPaint)return;
+  if(!F.name.trim()){toast('請填畫名');$('#pname').focus();return}
+  const rec={...F,id:F.id||uid(),name:F.name.trim()};
+  delete rec._newImg;
+  if(!rec.collected)rec.collector='';
+  const A=db.paint.paintings,i=A.findIndex(x=>x.id===rec.id),old=i>=0?A[i]:null;
+  if(CLOUD&&F._newImg&&rec.img){
+    savingPaint=true;toast('圖片上傳中…');
+    try{rec.img=await uploadImg(await toBlob(rec.img))}
+    catch(e){savingPaint=false;toast('圖片上傳失敗，請檢查網路再試一次');return}
+    savingPaint=false;
+  }
+  if(i>=0)A[i]=rec;else A.push(rec);
+  if(old&&old.img&&old.img!==rec.img)removeImg(old.img);
+  if(!save())return;
+  ui.sold=!!rec.sold;closeSheet();render();toast('已儲存');
+}
+function delPaint(){const id=F.id,imgs=[(P(id)||{}).img,...db.paint.logs.filter(l=>l.pid===id).map(l=>l.img)];db.paint.paintings=db.paint.paintings.filter(p=>p.id!==id);db.paint.logs=db.paint.logs.filter(l=>l.pid!==id);[...new Set(imgs)].forEach(removeImg);save();closeSheet();render();toast('已刪除')}
+
+// 繪畫紀錄（可一次選多天）
+function logForm(id,pid){
+  const l=id&&db.paint.logs.find(x=>x.id===id);
+  const base=l?l.date:(ui.mode==='paint'&&ui.ptab==='cal'?ui.sel:TODAY);
+  const[y,m]=base.split('-').map(Number);
+  const unsold=db.paint.paintings.filter(p=>!p.sold);
+  F=l?{id:l.id,pid:l.pid,dates:[l.date],note:l.note||'',img:l.img||'',y,m:m-1}:{id:null,pid:pid||(unsold[0]||db.paint.paintings[0]).id,dates:[base],note:'',img:'',y,m:m-1};
+  openSheet(`
+  <div class="sh-head"><button onclick="closeSheet()">取消</button><b>${l?'編輯':'新增'}繪畫紀錄</b><button class="save" onclick="saveLog()">儲存</button></div>
+  <div class="f"><span>畫哪一張</span><div class="pick" id="pk">${pickList()}</div></div>
+  <div class="f"><span>${l?'日期':'日期（可以點好幾天）'}</span><div class="card mini" id="miniCal">${miniCal()}</div></div>
+  <label class="f"><span>今天畫的進度</span><textarea class="in" rows="3" placeholder="例如：上底色、完成天空" oninput="F.note=this.value">${esc(F.note)}</textarea></label>
+  <div class="f"><span>進度照片（可不放）</span><div class="imgbox" id="imgPrev">${F.img?`<img src="${F.img}">`:'點這裡上傳進度圖'}<input type="file" accept="image/*" onchange="pickImg(this)"></div>
+    <button type="button" class="linkbtn ${F.img?'':'hidden'}" id="imgDel" onclick="clearLogImg()">移除照片</button></div>
+  ${l?`<button class="danger" onclick="ask('刪除這天的紀錄？',delLog)">刪除這天的紀錄</button>`:''}`);
+}
+function pickList(){
+  const ps=[...db.paint.paintings].sort((a,b)=>(!!a.sold)-(!!b.sold));
+  return ps.map(p=>`<button type="button" class="${F.pid===p.id?'on':''}" onclick="F.pid='${p.id}';$('#pk').innerHTML=pickList()"><i class="dot" style="background:${p.color}"></i>${esc(p.name)}<span class="sub right">${p.sold?'已賣・':''}${daysOf(p.id)} 天</span></button>`).join('');
+}
+function miniCal(){return calendar(k=>({cls:F.dates.includes(k)?'picked':''}),F.y,F.m,{nav:'miniMv',click:'miniPick'})}
+function miniMv(n){F.m+=n;if(F.m<0){F.m=11;F.y--}if(F.m>11){F.m=0;F.y++}$('#miniCal').innerHTML=miniCal()}
+function miniPick(k){
+  if(F.id)F.dates=[k];
+  else{const i=F.dates.indexOf(k);if(i>=0)F.dates.splice(i,1);else F.dates.push(k)}
+  $('#miniCal').innerHTML=miniCal();
+}
+function clearLogImg(){F.img='';F._newImg=false;$('#imgPrev').innerHTML='點這裡上傳進度圖<input type="file" accept="image/*" onchange="pickImg(this)">';$('#imgDel').classList.add('hidden')}
+let savingLog=false;
+async function saveLog(){
+  if(savingLog)return;
+  if(!F.dates.length)return toast('請至少選一天');
+  let img=F.img||'';
+  if(CLOUD&&F._newImg&&img){
+    savingLog=true;toast('照片上傳中…');
+    try{img=await uploadImg(await toBlob(img))}catch(e){savingLog=false;return toast('照片上傳失敗，請檢查網路再試一次')}
+    savingLog=false;
+  }
+  const L=db.paint.logs,note=F.note.trim(),olds=[];
+  if(F.id){
+    const l=L.find(x=>x.id===F.id);olds.push(l.img);
+    const dup=L.find(x=>x.id!==F.id&&x.pid===F.pid&&x.date===F.dates[0]);
+    if(dup){olds.push(dup.img);dup.note=note||dup.note;dup.img=img||dup.img;db.paint.logs=L.filter(x=>x.id!==F.id)}
+    else Object.assign(l,{pid:F.pid,date:F.dates[0],note,img});
+  }else{
+    F.dates.forEach(d=>{const ex=L.find(x=>x.pid===F.pid&&x.date===d);if(ex){if(note)ex.note=note;if(img){olds.push(ex.img);ex.img=img}}else L.push({id:uid(),pid:F.pid,date:d,note,img})});
+  }
+  olds.forEach(u=>u&&u!==img&&removeImg(u));
+  save();closeSheet();
+  const last=[...F.dates].sort().pop();ui.mode='paint';ui.ptab='cal';goto(last);render();
+  toast(`已記錄 ${F.dates.length} 天`);
+}
+function delLog(){const u=(db.paint.logs.find(x=>x.id===F.id)||{}).img;db.paint.logs=db.paint.logs.filter(x=>x.id!==F.id);removeImg(u);save();closeSheet();render();toast('已刪除')}
+
+// ================= 啟動 / 登入 =================
+function showApp(on){$('#modeSeg').classList.toggle('hidden',!on);$('#fab').classList.toggle('hidden',!on)}
+function loginView(msg=''){
+  showApp(false);
+  $('#foot').textContent='';
+  $('#app').innerHTML=`<div class="login card">
+    <div class="logo">📒</div><b>媽媽的手帳</b>
+    <p class="sub">第一次使用請登入，之後就會一直保持登入</p>
+    <label class="f"><span>Email</span><input class="in" id="lgE" type="email" autocomplete="username" autocapitalize="off"></label>
+    <label class="f"><span>密碼</span><input class="in" id="lgP" type="password" autocomplete="current-password"></label>
+    <button class="btn big" id="lgB" onclick="doLogin()">登入</button>
+    <p class="red" id="lgM">${esc(msg)}</p></div>`;
+}
+async function doLogin(){
+  const b=$('#lgB');b.disabled=true;b.textContent='登入中…';
+  const {data,error}=await sb.auth.signInWithPassword({email:$('#lgE').value.trim(),password:$('#lgP').value});
+  if(error){b.disabled=false;b.textContent='登入';$('#lgM').textContent='Email 或密碼不對，再試一次';return}
+  user=data.user;await startCloud();
+}
+async function migrateDemo(){
+  // 示範版裡如果已經有資料，第一次登入時一起搬上雲端
+  const d=load('mom-app-v1');
+  const has=d.stock.entries.length||d.paint.paintings.length||d.stock.holidays.length;
+  if(!has)return null;
+  for(const p of d.paint.paintings){if(p.img&&p.img.startsWith('data:')){try{p.img=await uploadImg(await toBlob(p.img))}catch(e){p.img=''}}}
+  return d;
+}
+async function startCloud(){
+  showApp(true);
+  $('#app').innerHTML='<div class="empty">讀取中…</div>';
+  db=load();
+  const {data,error}=await sb.from('app_state').select('data').eq('user_id',user.id).maybeSingle();
+  if(error){toast('連不上雲端，先顯示這支手機上的資料');}
+  else if(data)db=norm(data.data);
+  else{const d=await migrateDemo();db=d||blank();dirty=true;pushCloud()}
+  try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}
+  $('#foot').textContent='資料已存到雲端';
+  render();
+}
+function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+async function boot(){
+  if(!CLOUD){render();return}
+  showApp(false);$('#app').innerHTML='<div class="empty">讀取中…</div>';
+  try{await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2')}
+  catch(e){db=load();showApp(true);render();toast('沒有網路，先顯示這支手機上的資料');return}
+  sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+  const {data:{session}}=await sb.auth.getSession();
+  user=session&&session.user;
+  if(user)startCloud();else loginView();
+}
+boot();
+</script>
+</body>
+</html>
