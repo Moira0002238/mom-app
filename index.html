@@ -22,6 +22,13 @@ input,textarea{font:inherit;color:inherit}
 .sub{color:var(--sub);font-size:15px}
 .red{color:var(--red)}.green{color:var(--green)}
 
+.top{display:flex;gap:8px;align-items:stretch}
+.top .seg{flex:1}
+.gear{width:54px;border-radius:14px;background:#e8dfd3;font-size:22px;flex:none}
+.setrow{display:block;width:100%;text-align:left;background:#fff;border-radius:16px;padding:14px 16px;margin-bottom:10px}
+.setrow b{display:block;font-size:18px}
+.meter{height:10px;background:#efe7dc;border-radius:5px;overflow:hidden;margin-top:10px}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:5px}
 .seg{display:flex;background:#e8dfd3;border-radius:14px;padding:4px;gap:4px}
 .seg button{flex:1;padding:11px 0;border-radius:11px;font-weight:700;color:var(--sub);font-size:18px}
 .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
@@ -148,14 +155,19 @@ img.prog{display:block;width:100%;max-height:240px;object-fit:cover;border-radiu
 .progs figure{margin:0;background:#fff;border-radius:12px;overflow:hidden}
 .progs img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .progs figcaption{font-size:13px;color:var(--sub);padding:4px 8px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lb{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+#lb img{max-width:100%;max-height:85vh;border-radius:8px}
+#lb span{color:#bbb;font-size:14px;margin-top:12px}
+.progs figure{cursor:pointer}
 .foot{text-align:center;color:var(--sub);font-size:13px;margin-top:24px}
 </style>
 </head>
 <body>
 
-<div class="seg" id="modeSeg">
-  <button data-m="stock" onclick="setMode('stock')">📈 股票</button>
-  <button data-m="paint" onclick="setMode('paint')">🎨 畫畫</button>
+<div class="top" id="modeSeg">
+  <div class="seg"><button data-m="stock" onclick="setMode('stock')">📈 股票</button>
+  <button data-m="paint" onclick="setMode('paint')">🎨 畫畫</button></div>
+  <button class="gear" onclick="settings()" aria-label="設定">⚙️</button>
 </div>
 <div id="app"></div>
 <div class="foot" id="foot">示範版：資料暫時存在這支手機裡</div>
@@ -165,6 +177,7 @@ img.prog{display:block;width:100%;max-height:240px;object-fit:cover;border-radiu
 <div class="sheet" id="sheet"></div>
 <div id="dlg" class="hidden"></div>
 <div id="toast"></div>
+<div id="lb" class="hidden" onclick="this.classList.add('hidden')"></div>
 
 <script>
 // ---------- 設定：填好這兩個就會變成雲端版（空白＝示範版，資料只存在這支手機） ----------
@@ -200,7 +213,13 @@ async function uploadImg(blob){
   if(error)throw error;
   return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
-function imgUsed(url){return db.paint.paintings.some(p=>p.img===url)||db.paint.logs.some(l=>l.img===url)}
+function imgUsed(url){return db.paint.paintings.some(p=>p.img===url||p.thumb===url)||db.paint.logs.some(l=>l.img===url||l.thumb===url)}
+// 上傳大圖＋縮圖（縮圖給列表用，省流量）
+async function uploadPhoto(){
+  const img=await uploadImg(await toBlob(F.img));
+  let thumb='';if(F._thumb){try{thumb=await uploadImg(await toBlob(F._thumb))}catch(e){}}
+  return{img,thumb};
+}
 function removeImg(url){
   if(!url||imgUsed(url))return;
   if(!CLOUD||!url||!url.includes('/'+BUCKET+'/'))return;
@@ -367,18 +386,19 @@ function paintCal(){
   return `<div class="card mt">${cal}</div><div class="dayhead"><b>${label(ui.sel)}</b></div>`+
     (list.length?list.map(l=>{const p=P(l.pid),ds_=datesOf(p.id);return `<button class="item" onclick="logForm('${l.id}')">
       <div class="row"><i class="dot" style="background:${p.color}"></i><b>${esc(p.name)}</b><span class="sub right">第 ${ds_.indexOf(l.date)+1} 天・共 ${ds_.length} 天</span></div>
-      ${l.note?`<div class="memo">${esc(l.note)}</div>`:''}${l.img?`<img class="prog" src="${l.img}">`:''}</button>`}).join(''):'<div class="empty">這天沒有畫畫紀錄</div>');
+      ${l.note?`<div class="memo">${esc(l.note)}</div>`:''}${l.img?`<img class="prog" loading="lazy" src="${l.thumb||l.img}">`:''}</button>`}).join(''):'<div class="empty">這天沒有畫畫紀錄</div>');
 }
 function paintList(){
   const all=db.paint.paintings,cnt=v=>all.filter(p=>!!p.sold===v).length;
   const ps=all.filter(p=>!!p.sold===ui.sold);
   return `<div class="seg small">${[[false,'未賣'],[true,'已賣']].map(([v,t])=>`<button class="${ui.sold===v?'on':''}" onclick="ui.sold=${v};render()">${t}（${cnt(v)}）</button>`).join('')}</div>
   <div class="gallery">${ps.map(p=>`<button class="pcard" onclick="paintDetail('${p.id}')">
-    <div class="thumb" style="${p.img?`background-image:url(${p.img})`:`background:${p.color}33`}">${p.img?'':'🎨'}</div>
+    <div class="thumb" style="${p.img?`background-image:url(${p.thumb||p.img})`:`background:${p.color}33`}">${p.img?'':'🎨'}</div>
     <div class="pinfo"><div class="pname"><i class="dot" style="background:${p.color}"></i>${esc(p.name)}</div>
     <div class="sub">${[p.year,p.size].filter(Boolean).map(esc).join('・')||'&nbsp;'}</div>
     <div class="sub">已畫 ${daysOf(p.id)} 天</div></div></button>`).join('')||`<div class="empty">${ui.sold?'還沒有賣出的畫':'還沒有畫作，按下方新增'}</div>`}</div>`;
 }
+function viewImg(u){const d=$('#lb');d.innerHTML=`<img src="${u}"><span>點一下關閉</span>`;d.classList.remove('hidden')}
 function paintDetail(id){
   const p=P(id),d=datesOf(id);
   const rows=[['尺寸',p.size],['底材',p.base],['材料',p.material],['年份',p.year],['藏家',p.collected?(p.collector||'（已收藏）'):''],['售價',p.price],['經歷',p.history],['狀態',p.sold?'已賣出':'未賣']].filter(r=>r[1]);
@@ -389,7 +409,7 @@ function paintDetail(id){
   <div class="actions"><button class="pri" onclick="logForm(null,'${id}')">＋ 記錄今天畫了</button><button onclick="toggleSold('${id}')">${p.sold?'改回未賣':'標記已賣出'}</button></div>
   ${rows.length?`<div class="kv">${rows.map(r=>`<div><span>${r[0]}</span><span>${esc(r[1])}</span></div>`).join('')}</div>`:''}
   ${d.length?`<div class="f"><span>畫過的日子</span><div class="datechips">${d.map(x=>`<span>${x.slice(5).replace('-','/')}</span>`).join('')}</div></div>`:''}
-  ${(()=>{const g=db.paint.logs.filter(l=>l.pid===id&&l.img).sort((a,b)=>a.date<b.date?-1:1);return g.length?`<div class="f"><span>進度照片</span><div class="progs">${g.map(l=>`<figure><img src="${l.img}"><figcaption>${l.date.slice(5).replace('-','/')}${l.note?'・'+esc(l.note):''}</figcaption></figure>`).join('')}</div></div>`:''})()}
+  ${(()=>{const g=db.paint.logs.filter(l=>l.pid===id&&l.img).sort((a,b)=>a.date<b.date?-1:1);return g.length?`<div class="f"><span>進度照片</span><div class="progs">${g.map(l=>`<figure onclick="viewImg('${l.img}')"><img loading="lazy" src="${l.thumb||l.img}"><figcaption>${l.date.slice(5).replace('-','/')}${l.note?'・'+esc(l.note):''}</figcaption></figure>`).join('')}</div></div>`:''})()}
   </div>`);
 }
 function toggleSold(id){const p=P(id);p.sold=!p.sold;save();ui.sold=p.sold;render();paintDetail(id);toast(p.sold?'已移到「已賣」':'已移到「未賣」')}
@@ -432,7 +452,8 @@ async function pickImg(inp){
   const c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
   c.getContext('2d').drawImage(img,0,0,c.width,c.height);
   if(img.close)img.close();
-  F.img=c.toDataURL('image/jpeg',CLOUD?.82:.78);F._newImg=true;
+  F.img=c.toDataURL('image/jpeg',CLOUD?.82:.78);F._newImg=true;F._thumb='';
+  if(CLOUD){const t=Math.min(1,420/Math.max(w,h)),tc=document.createElement('canvas');tc.width=Math.round(w*t);tc.height=Math.round(h*t);tc.getContext('2d').drawImage(c,0,0,tc.width,tc.height);F._thumb=tc.toDataURL('image/jpeg',.72)}
   $('#imgPrev').innerHTML=`<img src="${F.img}"><input type="file" accept="image/*" onchange="pickImg(this)">`;
   const d=$('#imgDel');if(d)d.classList.remove('hidden');
 }
@@ -441,21 +462,22 @@ async function savePaint(){
   if(savingPaint)return;
   if(!F.name.trim()){toast('請填畫名');$('#pname').focus();return}
   const rec={...F,id:F.id||uid(),name:F.name.trim()};
-  delete rec._newImg;
+  delete rec._newImg;delete rec._thumb;
+  if(!rec.img)rec.thumb='';
   if(!rec.collected)rec.collector='';
   const A=db.paint.paintings,i=A.findIndex(x=>x.id===rec.id),old=i>=0?A[i]:null;
   if(CLOUD&&F._newImg&&rec.img){
     savingPaint=true;toast('圖片上傳中…');
-    try{rec.img=await uploadImg(await toBlob(rec.img))}
+    try{Object.assign(rec,await uploadPhoto())}
     catch(e){savingPaint=false;toast('圖片上傳失敗，請檢查網路再試一次');return}
     savingPaint=false;
-  }
+  }else if(F._newImg)rec.thumb='';
   if(i>=0)A[i]=rec;else A.push(rec);
-  if(old&&old.img&&old.img!==rec.img)removeImg(old.img);
+  if(old){if(old.img!==rec.img)removeImg(old.img);if(old.thumb!==rec.thumb)removeImg(old.thumb)}
   if(!save())return;
   ui.sold=!!rec.sold;closeSheet();render();toast('已儲存');
 }
-function delPaint(){const id=F.id,imgs=[(P(id)||{}).img,...db.paint.logs.filter(l=>l.pid===id).map(l=>l.img)];db.paint.paintings=db.paint.paintings.filter(p=>p.id!==id);db.paint.logs=db.paint.logs.filter(l=>l.pid!==id);[...new Set(imgs)].forEach(removeImg);save();closeSheet();render();toast('已刪除')}
+function delPaint(){const id=F.id,pp=P(id)||{},imgs=[pp.img,pp.thumb,...db.paint.logs.filter(l=>l.pid===id).flatMap(l=>[l.img,l.thumb])];db.paint.paintings=db.paint.paintings.filter(p=>p.id!==id);db.paint.logs=db.paint.logs.filter(l=>l.pid!==id);[...new Set(imgs)].forEach(removeImg);save();closeSheet();render();toast('已刪除')}
 
 // 繪畫紀錄（可一次選多天）
 function logForm(id,pid){
@@ -463,7 +485,7 @@ function logForm(id,pid){
   const base=l?l.date:(ui.mode==='paint'&&ui.ptab==='cal'?ui.sel:TODAY);
   const[y,m]=base.split('-').map(Number);
   const unsold=db.paint.paintings.filter(p=>!p.sold);
-  F=l?{id:l.id,pid:l.pid,dates:[l.date],note:l.note||'',img:l.img||'',y,m:m-1}:{id:null,pid:pid||(unsold[0]||db.paint.paintings[0]).id,dates:[base],note:'',img:'',y,m:m-1};
+  F=l?{id:l.id,pid:l.pid,dates:[l.date],note:l.note||'',img:l.img||'',thumb:l.thumb||'',y,m:m-1}:{id:null,pid:pid||(unsold[0]||db.paint.paintings[0]).id,dates:[base],note:'',img:'',thumb:'',y,m:m-1};
   openSheet(`
   <div class="sh-head"><button onclick="closeSheet()">取消</button><b>${l?'編輯':'新增'}繪畫紀錄</b><button class="save" onclick="saveLog()">儲存</button></div>
   <div class="f"><span>畫哪一張</span><div class="pick" id="pk">${pickList()}</div></div>
@@ -484,32 +506,108 @@ function miniPick(k){
   else{const i=F.dates.indexOf(k);if(i>=0)F.dates.splice(i,1);else F.dates.push(k)}
   $('#miniCal').innerHTML=miniCal();
 }
-function clearLogImg(){F.img='';F._newImg=false;$('#imgPrev').innerHTML='點這裡上傳進度圖<input type="file" accept="image/*" onchange="pickImg(this)">';$('#imgDel').classList.add('hidden')}
+function clearLogImg(){F.img='';F.thumb='';F._thumb='';F._newImg=false;$('#imgPrev').innerHTML='點這裡上傳進度圖<input type="file" accept="image/*" onchange="pickImg(this)">';$('#imgDel').classList.add('hidden')}
 let savingLog=false;
 async function saveLog(){
   if(savingLog)return;
   if(!F.dates.length)return toast('請至少選一天');
-  let img=F.img||'';
+  let img=F.img||'',thumb=img?(F._newImg?'':F.thumb||''):'';
   if(CLOUD&&F._newImg&&img){
     savingLog=true;toast('照片上傳中…');
-    try{img=await uploadImg(await toBlob(img))}catch(e){savingLog=false;return toast('照片上傳失敗，請檢查網路再試一次')}
+    try{({img,thumb}=await uploadPhoto())}catch(e){savingLog=false;return toast('照片上傳失敗，請檢查網路再試一次')}
     savingLog=false;
   }
   const L=db.paint.logs,note=F.note.trim(),olds=[];
   if(F.id){
-    const l=L.find(x=>x.id===F.id);olds.push(l.img);
+    const l=L.find(x=>x.id===F.id);olds.push(l.img,l.thumb);
     const dup=L.find(x=>x.id!==F.id&&x.pid===F.pid&&x.date===F.dates[0]);
-    if(dup){olds.push(dup.img);dup.note=note||dup.note;dup.img=img||dup.img;db.paint.logs=L.filter(x=>x.id!==F.id)}
-    else Object.assign(l,{pid:F.pid,date:F.dates[0],note,img});
+    if(dup){if(img){olds.push(dup.img,dup.thumb);dup.img=img;dup.thumb=thumb}dup.note=note||dup.note;db.paint.logs=L.filter(x=>x.id!==F.id)}
+    else Object.assign(l,{pid:F.pid,date:F.dates[0],note,img,thumb});
   }else{
-    F.dates.forEach(d=>{const ex=L.find(x=>x.pid===F.pid&&x.date===d);if(ex){if(note)ex.note=note;if(img){olds.push(ex.img);ex.img=img}}else L.push({id:uid(),pid:F.pid,date:d,note,img})});
+    F.dates.forEach(d=>{const ex=L.find(x=>x.pid===F.pid&&x.date===d);if(ex){if(note)ex.note=note;if(img){olds.push(ex.img,ex.thumb);ex.img=img;ex.thumb=thumb}}else L.push({id:uid(),pid:F.pid,date:d,note,img,thumb})});
   }
-  olds.forEach(u=>u&&u!==img&&removeImg(u));
+  olds.forEach(u=>u&&u!==img&&u!==thumb&&removeImg(u));
   save();closeSheet();
   const last=[...F.dates].sort().pop();ui.mode='paint';ui.ptab='cal';goto(last);render();
   toast(`已記錄 ${F.dates.length} 天`);
 }
-function delLog(){const u=(db.paint.logs.find(x=>x.id===F.id)||{}).img;db.paint.logs=db.paint.logs.filter(x=>x.id!==F.id);removeImg(u);save();closeSheet();render();toast('已刪除')}
+function delLog(){const o=db.paint.logs.find(x=>x.id===F.id)||{};db.paint.logs=db.paint.logs.filter(x=>x.id!==F.id);removeImg(o.img);removeImg(o.thumb);save();closeSheet();render();toast('已刪除')}
+
+// ================= 設定 / 匯出 =================
+const FREE_BYTES=1024**3;
+function mb(b){return b>=1024**3?(b/1024**3).toFixed(2)+' GB':(b/1024**2).toFixed(1)+' MB'}
+function settings(){
+  const nP=db.paint.paintings.length,nL=db.paint.logs.length,nT=db.stock.entries.length;
+  const imgs=new Set([...db.paint.paintings.map(p=>p.img),...db.paint.logs.map(l=>l.img)].filter(Boolean));
+  openSheet(`
+  <div class="sh-head"><button onclick="closeSheet()">關閉</button><b>設定</b><span style="width:40px"></span></div>
+  <div class="setrow"><b>空間使用</b>
+    <div class="sub" id="usage">${CLOUD?'計算中…':'示範版：資料存在這支手機裡'}</div>
+    ${CLOUD?'<div class="meter"><i id="usageBar" style="width:0"></i></div>':''}
+    <div class="sub mt">股票紀錄 ${nT} 筆・畫作 ${nP} 張・繪畫紀錄 ${nL} 筆・照片 ${imgs.size} 張</div></div>
+  <button class="setrow" id="expBtn" onclick="exportAll()"><b>📦 匯出全部資料</b>
+    <span class="sub">把所有紀錄和照片打包成一個 zip 檔，可以存到「檔案」或傳到 LINE、雲端硬碟備份。裡面的表格可以用 Excel 或 Numbers 打開。</span></button>
+  ${CLOUD&&user?`<div class="setrow"><b>帳號</b><span class="sub">${esc(user.email||'')}</span></div>
+  <button class="danger" onclick="ask('確定要登出嗎？登出後要重新輸入密碼。',logout,'登出')">登出</button>`:''}`);
+  if(CLOUD)loadUsage();
+}
+async function loadUsage(){
+  try{
+    let total=0,count=0,offset=0;
+    for(;;){
+      const {data,error}=await sb.storage.from(BUCKET).list(user.id,{limit:1000,offset});
+      if(error)throw error;
+      data.forEach(f=>{total+=(f.metadata&&f.metadata.size)||0;count++});
+      if(data.length<1000)break;offset+=1000;
+    }
+    const pct=Math.min(100,total/FREE_BYTES*100);
+    const u=$('#usage');if(!u)return;
+    u.textContent=`照片空間已用 ${mb(total)} / 1 GB（${pct.toFixed(1)}%）`;
+    $('#usageBar').style.width=Math.max(pct,1)+'%';
+    if(pct>80)u.classList.add('red');
+  }catch(e){const u=$('#usage');if(u)u.textContent='讀不到空間資訊，請檢查網路'}
+}
+async function logout(){await sb.auth.signOut();user=null;closeSheet();loginView()}
+function csv(rows){return '\ufeff'+rows.map(r=>r.map(v=>{v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\r\n')}
+const safeName=s=>String(s||'未命名').replace(/[\\/:*?"<>|\s]+/g,'_').slice(0,40);
+let exporting=false;
+async function exportAll(){
+  if(exporting)return;exporting=true;
+  const btn=$('#expBtn b'),setB=t=>{if(btn)btn.textContent=t};
+  try{
+    setB('📦 準備中…');
+    if(!window.JSZip)await loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+    const zip=new JSZip(),S=db.stock,PP=db.paint;
+    zip.file('完整資料.json',JSON.stringify(db,null,2));
+    zip.file('股票紀錄.csv',csv([['日期','商品','方向','買進','賣出','損益','備註'],
+      ...[...S.entries].sort((a,b)=>a.date<b.date?-1:1).map(e=>{const b=bsOf(e);return[e.date,e.product,e.side==='short'?'放空':'做多',b.buy,b.sell,e.pl,e.note]})]));
+    zip.file('休盤日.csv',csv([['日期'],...[...S.holidays].sort().map(d=>[d])]));
+    zip.file('畫作.csv',csv([['畫名','尺寸','底材','材料','年份','藏家','售價','經歷','狀態','代表色','繪畫天數'],
+      ...PP.paintings.map(p=>[p.name,p.size,p.base,p.material,p.year,p.collected?(p.collector||'藏家收藏'):'',p.price,p.history,p.sold?'已賣':'未賣',p.color,daysOf(p.id)])]));
+    zip.file('繪畫紀錄.csv',csv([['日期','畫名','進度'],
+      ...[...PP.logs].sort((a,b)=>a.date<b.date?-1:1).map(l=>[l.date,(P(l.pid)||{}).name,l.note])]));
+    const jobs=[],seen=new Set();
+    PP.paintings.forEach(p=>{if(p.img&&!seen.has(p.img)){seen.add(p.img);jobs.push([p.img,`照片/畫作/${safeName(p.name)}_${p.id.slice(-4)}.jpg`])}});
+    PP.logs.forEach(l=>{if(l.img&&!seen.has(l.img)){seen.add(l.img);jobs.push([l.img,`照片/進度/${l.date}_${safeName((P(l.pid)||{}).name)}_${l.id.slice(-4)}.jpg`])}});
+    let done=0,fail=0;
+    for(const [url,name] of jobs){
+      setB(`📦 下載照片 ${done+1}/${jobs.length}…`);
+      try{const r=await fetch(url);if(!r.ok)throw 0;zip.file(name,await r.blob())}catch(e){fail++}
+      done++;
+    }
+    setB('📦 打包中…');
+    const blob=await zip.generateAsync({type:'blob'});
+    const fname=`媽媽的手帳備份_${TODAY}.zip`,file=new File([blob],fname,{type:'application/zip'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:fname})}catch(e){if(e.name!=='AbortError')throw e}
+    }else{
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000);
+    }
+    toast(fail?`匯出完成，有 ${fail} 張照片沒下載到`:'匯出完成');
+  }catch(e){toast('匯出失敗，請檢查網路再試一次')}
+  finally{exporting=false;setB('📦 匯出全部資料')}
+}
 
 // ================= 啟動 / 登入 =================
 function showApp(on){$('#modeSeg').classList.toggle('hidden',!on);$('#fab').classList.toggle('hidden',!on)}
