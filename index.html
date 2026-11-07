@@ -4,11 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="媽媽的手帳">
+<meta name="apple-mobile-web-app-title" content="手帳">
+<meta name="description" content="股票損益與畫畫紀錄">
+<meta property="og:title" content="手帳">
+<meta property="og:description" content="股票損益與畫畫紀錄">
+<meta property="og:image" content="https://moira0002238.github.io/mom-app/icon-180.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f6f1ea">
 <link rel="apple-touch-icon" href="icon-180.png">
-<title>媽媽的手帳</title>
+<title>手帳</title>
 <style>
 :root{--bg:#f6f1ea;--card:#fff;--ink:#2b2622;--sub:#8a8179;--line:#e6ddd2;--accent:#b5653a;--red:#d93b3b;--green:#1f9d55;--hol:#d6d2cd}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -159,6 +163,12 @@ img.prog{display:block;width:100%;max-height:240px;object-fit:cover;border-radiu
 #lb img{max-width:100%;max-height:85vh;border-radius:8px}
 #lb span{color:#bbb;font-size:14px;margin-top:12px}
 .progs figure{cursor:pointer}
+.tag.cin{background:#dfeaf6;color:#2c5d8f}
+.tag.cout{background:#f3e3d3;color:#8a4b1f}
+.item.cash{border:1.5px dashed var(--line)}
+.capbig .big{font-size:30px;font-weight:800}
+.actions .pri.out{background:var(--ink)}
+.linkbtn.plain{color:var(--sub);display:block;margin:12px auto 0;text-decoration:underline}
 .foot{text-align:center;color:var(--sub);font-size:13px;margin-top:24px}
 </style>
 </head>
@@ -170,7 +180,7 @@ img.prog{display:block;width:100%;max-height:240px;object-fit:cover;border-radiu
   <button class="gear" onclick="settings()" aria-label="設定">⚙️</button>
 </div>
 <div id="app"></div>
-<div class="foot" id="foot">示範版：資料暫時存在這支手機裡</div>
+<div class="foot" id="foot"></div>
 
 <button id="fab" onclick="fab()">＋ 新增</button>
 <div class="mask" id="mask" onclick="closeSheet()"></div>
@@ -184,12 +194,13 @@ img.prog{display:block;width:100%;max-height:240px;object-fit:cover;border-radiu
 const SUPABASE_URL='https://xxcqpdaqdqdkqwteitga.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_eEE9OCdkS6AvjX39s1-sRw_AbH0cSY4';
 const BUCKET='paintings';
+const VER='1107-1';
 const CLOUD=!!(SUPABASE_URL&&SUPABASE_ANON_KEY);
 
 // ---------- 資料層 ----------
 const KEY=CLOUD?'mom-app-cloud':'mom-app-v1';
 let mem=null,sb=null,user=null,syncT=null,dirty=false;
-function blank(){return{stock:{entries:[],products:['期貨','華新科'],holidays:[]},paint:{paintings:[],logs:[]}}}
+function blank(){return{stock:{entries:[],products:['期貨','華新科'],holidays:[],cash:[]},paint:{paintings:[],logs:[]}}}
 function norm(d){const b=blank();d=d||{};return{stock:{...b.stock,...(d.stock||{})},paint:{...b.paint,...(d.paint||{})}}}
 function load(k=KEY){try{const s=localStorage.getItem(k);if(s)return norm(JSON.parse(s))}catch(e){}return mem||blank()}
 function save(){
@@ -291,11 +302,11 @@ function stockView(){
     return{cls:hol?'hol':'',html:has?`<span class="amt ${cl(v)}">${v===0?'0':fmtS(v)}</span>`:(hol?'<span class="amt">休盤</span>':'')};
   });
   const list=S.entries.filter(e=>e.date===ui.sel),isHol=S.holidays.includes(ui.sel);
-  const totPL=S.entries.reduce((s,e)=>s+e.pl,0),hasCap=typeof S.capital==='number';
+  const hasCap=typeof S.capital==='number'||S.cash.length>0,cashDay=S.cash.filter(c=>c.date===ui.sel);
   return `
-  <button class="card capital mt" onclick="capForm()">
-    <div><div class="lbl">本金</div><div class="big">${hasCap?Math.round(S.capital+totPL).toLocaleString('zh-TW'):'點這裡設定'}</div></div>
-    <span class="ghost">調整</span></button>
+  <button class="card capital mt" onclick="capSheet()">
+    <div><div class="lbl">本金</div><div class="big">${hasCap?Math.round(capNow()).toLocaleString('zh-TW'):'點這裡設定'}</div></div>
+    <span class="ghost">入金／出金</span></button>
   <div class="sum">
     <div class="card"><div class="lbl">今日合計損益</div><div class="big ${cl(todayTot)}">${fmt(todayTot)}</div></div>
     <div class="card"><div class="lbl">${ui.m+1}月合計損益</div><div class="big ${cl(monthTot)}">${fmt(monthTot)}</div></div>
@@ -306,21 +317,64 @@ function stockView(){
   ${list.map(e=>`<button class="item" onclick="stockForm('${e.id}')">
       <div class="row"><span class="tag">${esc(e.product)}</span><span class="sub">${[e.side==='short'?'放空':'做多',...bsText(e)].join('・')}</span><span class="amt2 ${cl(e.pl)}">${fmt(e.pl)}</span></div>
       ${e.note?`<div class="memo">${esc(e.note)}</div>`:''}</button>`).join('')}
-  ${!list.length&&!isHol?'<div class="empty">這天還沒有紀錄</div>':''}
+  ${cashDay.map(cashItem).join('')}
+  ${!list.length&&!cashDay.length&&!isHol?'<div class="empty">這天還沒有紀錄</div>':''}
   ${list.length>1?`<div class="daytot">當日合計 <b class="${cl(dayPL(ui.sel))}">${fmt(dayPL(ui.sel))}</b></div>`:''}`;
 }
-function capForm(){
-  const S=db.stock,totPL=S.entries.reduce((s,e)=>s+e.pl,0),cur=typeof S.capital==='number'?Math.round(S.capital+totPL):'';
+// ---------- 本金：入金／出金 ----------
+const totPL=()=>db.stock.entries.reduce((s,e)=>s+e.pl,0);
+const cashNet=()=>db.stock.cash.reduce((s,c)=>s+(c.type==='in'?c.amount:-c.amount),0);
+const capNow=()=>(db.stock.capital||0)+totPL()+cashNet();
+function cashItem(c){
+  return `<button class="item cash" onclick="cashForm('${c.type}','${c.id}')">
+    <div class="row"><span class="tag c${c.type}">${c.type==='in'?'入金':'出金'}</span><span class="sub">${c.date.slice(5).replace('-','/')}</span><span class="amt2">${c.type==='in'?'+':'−'}${Math.round(c.amount).toLocaleString('zh-TW')}</span></div>
+    ${c.note?`<div class="memo">${esc(c.note)}</div>`:''}</button>`;
+}
+function capSheet(){
+  const S=db.stock,hasCap=typeof S.capital==='number'||S.cash.length>0;
+  const hist=[...S.cash].sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  const ym=TODAY.slice(0,7),mIn=S.cash.filter(c=>c.type==='in'&&c.date.startsWith(ym)).reduce((s,c)=>s+c.amount,0),mOut=S.cash.filter(c=>c.type==='out'&&c.date.startsWith(ym)).reduce((s,c)=>s+c.amount,0);
   openSheet(`
-  <div class="sh-head"><button onclick="closeSheet()">取消</button><b>調整本金</b><button class="save" onclick="saveCap()">儲存</button></div>
+  <div class="sh-head"><button onclick="closeSheet()">關閉</button><b>本金</b><span style="width:40px"></span></div>
+  <div class="card capbig"><div class="lbl">目前本金</div><div class="big">${hasCap?Math.round(capNow()).toLocaleString('zh-TW'):'尚未設定'}</div>
+    <div class="sub">本月入金 ${Math.round(mIn).toLocaleString('zh-TW')}・出金 ${Math.round(mOut).toLocaleString('zh-TW')}</div></div>
+  <div class="actions mt"><button class="pri" onclick="cashForm('in')">＋ 入金</button><button class="pri out" onclick="cashForm('out')">－ 出金</button></div>
+  <div class="f"><span>出入金紀錄（點一下可以修改）</span>${hist.map(cashItem).join('')||'<div class="empty">還沒有出入金紀錄</div>'}</div>
+  <button class="linkbtn plain" onclick="capForm()">直接修正本金金額</button>`);
+}
+function cashForm(type,id){
+  const c=id&&db.stock.cash.find(x=>x.id===id);
+  F=c?{...c}:{id:null,type,date:ui.mode==='stock'?ui.sel:TODAY,amount:'',note:''};
+  const isIn=F.type==='in';
+  openSheet(`
+  <div class="sh-head"><button onclick="capSheet()">返回</button><b>${c?'修改':'新增'}${isIn?'入金':'出金'}</b><button class="save" onclick="saveCash()">儲存</button></div>
+  <label class="f"><span>日期</span><input type="date" class="in" value="${F.date}" onchange="F.date=this.value"></label>
+  <label class="f"><span>金額</span><input class="in" id="cashAmt" inputmode="decimal" placeholder="例如 50000" value="${F.amount}" oninput="F.amount=this.value"></label>
+  <label class="f"><span>備註${isIn?'':'（錢用在哪裡）'}</span><textarea class="in" rows="3" placeholder="${isIn?'例如：補保證金':'例如：繳房貸、生活費'}" oninput="F.note=this.value">${esc(F.note)}</textarea></label>
+  ${c?`<button class="danger" onclick="ask('刪除這筆${isIn?'入金':'出金'}？',delCash)">刪除這筆</button>`:''}`);
+}
+function saveCash(){
+  const amt=parseFloat(String(F.amount).replace(/,/g,''));
+  if(!F.date)return toast('請選日期');
+  if(isNaN(amt)||amt<=0)return toast('請輸入金額');
+  const rec={id:F.id||uid(),type:F.type,date:F.date,amount:Math.abs(amt),note:(F.note||'').trim()};
+  const C=db.stock.cash,i=C.findIndex(x=>x.id===rec.id);
+  if(i>=0)C[i]=rec;else C.push(rec);
+  if(typeof db.stock.capital!=='number')db.stock.capital=0;
+  save();render();capSheet();toast(rec.type==='in'?'已記錄入金':'已記錄出金');
+}
+function delCash(){db.stock.cash=db.stock.cash.filter(x=>x.id!==F.id);save();render();capSheet();toast('已刪除')}
+function capForm(){
+  const cur=typeof db.stock.capital==='number'||db.stock.cash.length?Math.round(capNow()):'';
+  openSheet(`
+  <div class="sh-head"><button onclick="capSheet()">返回</button><b>修正本金</b><button class="save" onclick="saveCap()">儲存</button></div>
   <label class="f"><span>目前本金</span><input class="in" id="capIn" inputmode="decimal" value="${cur}" placeholder="例如 500000"></label>
-  <p class="sub">之後每筆獲利、損失都會自動加減到本金上。入金、出金時再來這裡改成新的金額就好。</p>`);
+  <p class="sub">只有第一次設定、或是數字對不上的時候才用這裡。平常有錢進出，請用「入金／出金」記錄，才看得到錢花去哪裡。</p>`);
 }
 function saveCap(){
   const v=parseFloat($('#capIn').value.replace(/,/g,''));
   if(isNaN(v))return toast('請輸入金額');
-  const totPL=db.stock.entries.reduce((s,e)=>s+e.pl,0);
-  db.stock.capital=v-totPL;save();closeSheet();render();toast('本金已更新');
+  db.stock.capital=v-totPL()-cashNet();save();render();capSheet();toast('本金已更新');
 }
 function toggleHol(){
   const H=db.stock.holidays,i=H.indexOf(ui.sel);
@@ -581,6 +635,7 @@ async function exportAll(){
     zip.file('完整資料.json',JSON.stringify(db,null,2));
     zip.file('股票紀錄.csv',csv([['日期','商品','方向','買進','賣出','損益','備註'],
       ...[...S.entries].sort((a,b)=>a.date<b.date?-1:1).map(e=>{const b=bsOf(e);return[e.date,e.product,e.side==='short'?'放空':'做多',b.buy,b.sell,e.pl,e.note]})]));
+    zip.file('出入金.csv',csv([['日期','類型','金額','備註'],...[...S.cash].sort((a,b)=>a.date<b.date?-1:1).map(c=>[c.date,c.type==='in'?'入金':'出金',c.amount,c.note])]));
     zip.file('休盤日.csv',csv([['日期'],...[...S.holidays].sort().map(d=>[d])]));
     zip.file('畫作.csv',csv([['畫名','尺寸','底材','材料','年份','藏家','售價','經歷','狀態','代表色','繪畫天數'],
       ...PP.paintings.map(p=>[p.name,p.size,p.base,p.material,p.year,p.collected?(p.collector||'藏家收藏'):'',p.price,p.history,p.sold?'已賣':'未賣',p.color,daysOf(p.id)])]));
@@ -597,7 +652,7 @@ async function exportAll(){
     }
     setB('📦 打包中…');
     const blob=await zip.generateAsync({type:'blob'});
-    const fname=`媽媽的手帳備份_${TODAY}.zip`,file=new File([blob],fname,{type:'application/zip'});
+    const fname=`手帳備份_${TODAY}.zip`,file=new File([blob],fname,{type:'application/zip'});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
       try{await navigator.share({files:[file],title:fname})}catch(e){if(e.name!=='AbortError')throw e}
     }else{
@@ -615,7 +670,7 @@ function loginView(msg=''){
   showApp(false);
   $('#foot').textContent='';
   $('#app').innerHTML=`<div class="login card">
-    <div class="logo">📒</div><b>媽媽的手帳</b>
+    <div class="logo">📒</div><b>手帳</b>
     <p class="sub">第一次使用請登入，之後就會一直保持登入</p>
     <label class="f"><span>Email</span><input class="in" id="lgE" type="email" autocomplete="username" autocapitalize="off"></label>
     <label class="f"><span>密碼</span><input class="in" id="lgP" type="password" autocomplete="current-password"></label>
@@ -625,7 +680,15 @@ function loginView(msg=''){
 async function doLogin(){
   const b=$('#lgB');b.disabled=true;b.textContent='登入中…';
   const {data,error}=await sb.auth.signInWithPassword({email:$('#lgE').value.trim(),password:$('#lgP').value});
-  if(error){b.disabled=false;b.textContent='登入';$('#lgM').textContent='Email 或密碼不對，再試一次';return}
+  if(error){
+    b.disabled=false;b.textContent='登入';
+    const c=error.code||'',m=(error.message||'').toLowerCase();
+    $('#lgM').textContent=c==='invalid_credentials'||m.includes('invalid login')?'Email 或密碼不對，再試一次'
+      :c==='email_not_confirmed'||m.includes('not confirmed')?'這個帳號還沒確認：請到 Supabase 的 Users 把它設為已確認（Auto Confirm）'
+      :error.status===0||m.includes('fetch')||m.includes('network')?'連不上伺服器（網路或預覽環境的限制），請用 Safari 打開網址再試'
+      :'登入失敗：'+(error.message||c);
+    return;
+  }
   user=data.user;await startCloud();
 }
 async function migrateDemo(){
@@ -645,12 +708,12 @@ async function startCloud(){
   else if(data)db=norm(data.data);
   else{const d=await migrateDemo();db=d||blank();dirty=true;pushCloud()}
   try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}
-  $('#foot').textContent='資料已存到雲端';
+  $('#foot').textContent='資料已存到雲端・版本 '+VER;
   render();
 }
 function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
 async function boot(){
-  if(!CLOUD){render();return}
+  if(!CLOUD){$('#foot').textContent='示範版：資料暫時存在這支手機裡';render();return}
   showApp(false);$('#app').innerHTML='<div class="empty">讀取中…</div>';
   try{await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2')}
   catch(e){db=load();showApp(true);render();toast('沒有網路，先顯示這支手機上的資料');return}
